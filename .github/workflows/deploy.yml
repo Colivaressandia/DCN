@@ -19,25 +19,56 @@ jobs:
         distribution: 'temurin'
         cache: 'maven'
 
+    - name: Compilar Proyecto con Maven
+      run: chmod +x mvnw && ./mvnw clean package -DskipTests
+
     - name: Autenticar en Docker Hub
       uses: docker/login-action@v3
       with:
-        username: ${{ secrets.DOCKERHUB_USERNAME }}
-        password: ${{ secrets.DOCKERHUB_TOKEN }}
+        username: ${{ secrets.DOCKER_USERNAME }}
+        password: ${{ secrets.DOCKER_PASSWORD }}
 
     - name: Construir y Publicar Imagen en Docker Hub
       run: |
-        docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/inscripciones-backend:latest .
-        docker push ${{ secrets.DOCKERHUB_USERNAME }}/inscripciones-backend:latest
+        docker build -t ${{ secrets.DOCKER_USERNAME }}/inscripciones-backend:latest .
+        docker push ${{ secrets.DOCKER_USERNAME }}/inscripciones-backend:latest
 
     - name: Desplegar en Instancia EC2 mediante SSH
       uses: appleboy/ssh-action@v1.0.3
       with:
-        host: ${{ secrets.AWS_EC2_HOST }}
-        username: ec2-user
-        key: ${{ secrets.AWS_EC2_SSH_KEY }}
+        host: ${{ secrets.EC2_HOST }}
+        username: ${{ secrets.EC2_USERNAME }}
+        key: ${{ secrets.EC2_SSH_KEY }}
         script: |
+          # 1. Instalar Docker en la máquina virtual si no existe
+          if ! command -v docker &> /dev/null; then
+            sudo apt-get update -y
+            sudo apt-get install -y docker.io
+            sudo systemctl start docker
+            sudo systemctl enable docker
+            sudo usermod -aG docker ubuntu
+          fi
+
+          # 2. Instalar utilidades para conectar redes NFS (EFS)
+          sudo apt-get install -y nfs-common
+
+          # 3. Crear carpetas físicas de montaje en la máquina de AWS
+          sudo mkdir -p /mnt/efs_guias
+          sudo mkdir -p /home/ubuntu/efs_local_guias
+
+          # 4. Conectar el volumen elástico EFS de AWS
+          sudo mount -t nfs4 -o nfsvers=4.1,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2,noresvport fs-0b535e067b2778e63.efs.us-east-1.amazonaws.com:/ /mnt/efs_guias || true
+          
+          # Enlazar la carpeta del EFS con el directorio local que lee tu Spring Boot
+          sudo mount --bind /mnt/efs_guias /home/ubuntu/efs_local_guias || true
+
+          # 5. Detener el contenedor anterior, descargar la nueva imagen y encenderlo con volumen mapeado
           sudo docker stop inscripciones-backend || true
           sudo docker rm inscripciones-backend || true
-          sudo docker pull ${{ secrets.DOCKERHUB_USERNAME }}/inscripciones-backend:latest
-          sudo docker run -d --name inscripciones-backend -p 8080:8080 ${{ secrets.DOCKERHUB_USERNAME }}/inscripciones-backend:latest
+          sudo docker pull ${{ secrets.DOCKER_USERNAME }}/inscripciones-backend:latest
+          
+          sudo docker run -d \
+            --name inscripciones-backend \
+            -p 8080:8080 \
+            -v /home/ubuntu/efs_local_guias:/root/efs_local_guias \
+            ${{ secrets.DOCKER_USERNAME }}/inscripciones-backend:latest
