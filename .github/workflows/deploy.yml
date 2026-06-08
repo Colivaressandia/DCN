@@ -62,7 +62,7 @@ jobs:
           # Enlazar la carpeta del EFS con el directorio local que lee tu Spring Boot
           sudo mount --bind /mnt/efs_guias /home/ubuntu/efs_local_guias || true
 
-          # 5. Detener el contenedor anterior, descargar la nueva imagen y encenderlo con volumen mapeado e inyección de credenciales
+          # 5. Detener el contenedor anterior, descargar la nueva imagen y encenderlo con volumen mapeado e inyección de credenciales seguras
           sudo docker stop inscripciones-backend || true
           sudo docker rm inscripciones-backend || true
           sudo docker pull ${{ secrets.DOCKER_USERNAME }}/inscripciones-backend:latest
@@ -70,8 +70,8 @@ jobs:
           sudo docker run -d \
             --name inscripciones-backend \
             -p 8080:8080 \
-            -e AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID \
-            -e AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY \
-            -e AWS_SESSION_TOKEN=$AWS_SESSION_TOKEN \
+            -e AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }} \
+            -e AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }} \
+            -e AWS_SESSION_TOKEN=${{ secrets.AWS_SESSION_TOKEN }} \
             -v /home/ubuntu/efs_local_guias:/root/efs_local_guias \
             ${{ secrets.DOCKER_USERNAME }}/inscripciones-backend:latest
