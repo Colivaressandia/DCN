@@ -83,6 +83,7 @@ public class GuiaController {
     }
 
     // 3. CONSULTAR POR TRANSPORTISTA Y FECHA (GET /api/guias/buscar)
+    // El filtro de seguridad lo maneja automáticamente SecurityConfig a través de .anyRequest().authenticated()
     @GetMapping("/buscar")
     public ResponseEntity<List<GuiaDespacho>> buscarPorFiltros(
             @RequestParam String transportista, 
@@ -92,14 +93,9 @@ public class GuiaController {
         return ResponseEntity.ok(resultados);
     }
 
-    // 4. DESCARGAR GUÍA CON VALIDACIÓN DE PERMISOS (GET /api/guias/{id}/descargar)
+    // 4. DESCARGAR GUÍA (GET /api/guias/{id}/descargar)
     @GetMapping("/{id}/descargar")
-    public ResponseEntity<String> descargarGuia(@PathVariable Long id, @RequestHeader(value = "Authorization", required = false) String token) {
-        // Simulación de validación de permisos requerida por la pauta
-        if (token == null || !token.startsWith("Bearer ")) {
-            return ResponseEntity.status(403).body("Acceso denegado: No posee los permisos requeridos para descargar guías.");
-        }
-
+    public ResponseEntity<String> descargarGuia(@PathVariable Long id) {
         Optional<GuiaDespacho> optionalGuia = repository.findById(id);
         if (optionalGuia.isEmpty()) {
             return ResponseEntity.status(404).body("Guía no encontrada.");

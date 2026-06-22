@@ -71,7 +71,6 @@ public class InscripcionController {
     // ===================================================================
 
     // 4. ENDPOINT: Generar resumen de base de datos y subirlo a AWS S3
-    // POST http://localhost:8080/api/inscripciones/{id}/subir
     @PostMapping("/inscripciones/{id}/subir")
     public ResponseEntity<String> subirResumenS3(@PathVariable Long id) {
         Inscripcion inscripcion = inscripcionRepository.findById(id)
@@ -90,7 +89,6 @@ public class InscripcionController {
     }
 
     // 5. ENDPOINT: Descargar el archivo del resumen de inscripción desde S3
-    // GET http://localhost:8080/api/inscripciones/{id}/descargar
     @GetMapping("/inscripciones/{id}/descargar")
     public ResponseEntity<byte[]> descargarResumenS3(@PathVariable Long id) {
         String contenido = awsS3Service.descargarArchivo(id);
@@ -104,16 +102,13 @@ public class InscripcionController {
     }
 
     // 6. ENDPOINT: Modificar el contenido del archivo en S3 en caso de error
-    // PUT http://localhost:8080/api/inscripciones/{id}/modificar
     @PutMapping("/inscripciones/{id}/modificar")
     public ResponseEntity<String> modificarResumenS3(@PathVariable Long id, @RequestBody String nuevoContenido) {
-        // Al enviar una petición PUT con el nuevo texto plano, S3 sobreescribe el archivo previo de forma segura
         awsS3Service.subirArchivo(id, nuevoContenido);
         return ResponseEntity.ok("Archivo de inscripción N° " + id + " modificado correctamente en AWS S3.");
     }
 
     // 7. ENDPOINT: Eliminar el archivo físico de S3
-    // DELETE http://localhost:8080/api/inscripciones/{id}/borrar
     @DeleteMapping("/inscripciones/{id}/borrar")
     public ResponseEntity<String> borrarResumenS3(@PathVariable Long id) {
         awsS3Service.borrarArchivo(id);
