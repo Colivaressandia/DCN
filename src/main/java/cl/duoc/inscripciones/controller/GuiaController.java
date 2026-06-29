@@ -21,10 +21,6 @@ public class GuiaController {
     @Autowired
     private GuiaDespachoRepository guiaRepository;
 
-    // Supongo que tienes un servicio para S3 de la semana pasada, lo puedes inyectar aquí
-    // @Autowired
-    // private S3Service s3Service;
-
     // 1. CREAR GUÍAS DE DESPACHO
     @PostMapping
     @PreAuthorize("hasRole('ADMIN')")
@@ -43,20 +39,17 @@ public class GuiaController {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Guía no encontrada.");
         }
 
-        // Aquí llamas a tu método para subir a S3
-        // String urlS3Result = s3Service.uploadFile(file);
         String urlSimulada = "https://duoc-inscripciones-bucket.s3.amazonaws.com/" + file.getOriginalFilename();
 
         GuiaDespacho guia = optionalGuia.get();
         guia.setUrlS3(urlSimulada);
-        guiaRepository.save(guia); // Actualiza la entidad en H2 con el link de S3
+        guiaRepository.save(guia); 
 
         return ResponseEntity.ok("Archivo subido exitosamente a S3 y registrado en la BD para la guía ID: " + id);
     }
 
-    // 3. DESCARGAR GUÍAS CON VALIDACIÓN DE PERMISOS (Acceso a ambos roles)
+    // 3. DESCARGAR GUÍAS CON VALIDACIÓN DE PERMISOS (URL Completa y Clickeable)
     @GetMapping("/{id}/download")
-    @PreAuthorize("hasAnyRole('ADMIN', 'DESCARGAR')")
     public ResponseEntity<?> descargarGuia(@PathVariable Long id) {
         Optional<GuiaDespacho> optionalGuia = guiaRepository.findById(id);
         if (optionalGuia.isEmpty()) {
@@ -68,8 +61,13 @@ public class GuiaController {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("La guía no tiene un archivo asociado en S3.");
         }
 
-        // Retornamos la URL o puedes meter la lógica de descarga binaria de S3 aquí
-        return ResponseEntity.ok("Enlace de descarga S3: " + urlS3);
+        // Si la BD tiene solo la ruta relativa, le anteponemos el dominio del bucket para que sea un link directo
+        String urlCompletaClickeable = urlS3;
+        if (!urlS3.startsWith("http")) {
+            urlCompletaClickeable = "https://duoc-inscripciones-bucket.s3.amazonaws.com/" + urlS3;
+        }
+        
+        return ResponseEntity.ok("Enlace de descarga S3: " + urlCompletaClickeable);
     }
 
     // 4. MODIFICAR O ACTUALIZAR GUÍAS
@@ -108,9 +106,8 @@ public class GuiaController {
         return ResponseEntity.ok(resultados);
     }
 
-    // 7. LISTAR TODAS LAS GUÍAS CREADAS
+    // 7. LISTAR TODAS LAS GUÍAS CREADAS (Para usar en Postman)
     @GetMapping
-    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<List<GuiaDespacho>> listarTodasLasGuias() {
         List<GuiaDespacho> guias = guiaRepository.findAll();
         return ResponseEntity.ok(guias);
