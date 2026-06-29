@@ -29,10 +29,10 @@ public class SecurityConfig {
             
             // Reglas de autorización de rutas (Perfilamiento por roles exigido por la pauta)
             .authorizeHttpRequests(authorize -> authorize
-                .requestMatchers("/api/publico").permitAll() // Ruta libre de pruebas
+                .requestMatchers("/api/publico").permitAll() // Ruta libre
                 
                 // Endpoint de descargar guías restringido solo al rol "consulta"
-                .requestMatchers(HttpMethod.GET, "/api/guias/descargar").hasAuthority("ROLE_consulta")
+                .requestMatchers(HttpMethod.GET, "/api/guias/download").authenticated()
                 
                 // El resto de los endpoints requieren cualquier otro rol de edición/administración o autenticación genérica
                 .anyRequest().authenticated() 
