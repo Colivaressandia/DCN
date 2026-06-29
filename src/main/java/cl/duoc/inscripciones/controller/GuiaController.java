@@ -107,4 +107,12 @@ public class GuiaController {
         List<GuiaDespacho> resultados = guiaRepository.findByTransportistaIgnoreCaseAndFecha(transportista, fecha);
         return ResponseEntity.ok(resultados);
     }
+
+    // 7. LISTAR TODAS LAS GUÍAS CREADAS
+    @GetMapping
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<List<GuiaDespacho>> listarTodasLasGuias() {
+        List<GuiaDespacho> guias = guiaRepository.findAll();
+        return ResponseEntity.ok(guias);
+    }
 }
