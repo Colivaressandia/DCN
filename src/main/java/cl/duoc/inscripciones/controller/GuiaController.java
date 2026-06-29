@@ -6,7 +6,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -21,17 +20,15 @@ public class GuiaController {
     @Autowired
     private GuiaDespachoRepository guiaRepository;
 
-    // 1. CREAR GUÍAS DE DESPACHO
+    // 1. CREAR GUÍAS DE DESPACHO (Protegido por SecurityConfig -> ROLE_ADMIN)
     @PostMapping
-    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<GuiaDespacho> crearGuia(@RequestBody GuiaDespacho nuevaGuia) {
         GuiaDespacho guardada = guiaRepository.save(nuevaGuia);
         return new ResponseEntity<>(guardada, HttpStatus.CREATED);
     }
 
-    // 2. SUBIR GUÍAS GENERADAS A S3
+    // 2. SUBIR GUÍAS GENERADAS A S3 (Protegido por SecurityConfig -> ROLE_ADMIN)
     @PostMapping("/{id}/upload")
-    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<String> subirGuiaAS3(@PathVariable Long id, @RequestParam("file") MultipartFile file) {
         Optional<GuiaDespacho> optionalGuia = guiaRepository.findById(id);
         
@@ -48,7 +45,7 @@ public class GuiaController {
         return ResponseEntity.ok("Archivo subido exitosamente a S3 y registrado en la BD para la guía ID: " + id);
     }
 
-    // 3. DESCARGAR GUÍAS CON VALIDACIÓN DE PERMISOS (URL Completa y Clickeable)
+    // 3. DESCARGAR GUÍAS (Protegido por SecurityConfig -> ROLE_DESCARGAR)
     @GetMapping("/{id}/download")
     public ResponseEntity<?> descargarGuia(@PathVariable Long id) {
         Optional<GuiaDespacho> optionalGuia = guiaRepository.findById(id);
@@ -61,7 +58,6 @@ public class GuiaController {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("La guía no tiene un archivo asociado en S3.");
         }
 
-        // Si la BD tiene solo la ruta relativa, le anteponemos el dominio del bucket para que sea un link directo
         String urlCompletaClickeable = urlS3;
         if (!urlS3.startsWith("http")) {
             urlCompletaClickeable = "https://duoc-inscripciones-bucket.s3.amazonaws.com/" + urlS3;
@@ -70,9 +66,8 @@ public class GuiaController {
         return ResponseEntity.ok("Enlace de descarga S3: " + urlCompletaClickeable);
     }
 
-    // 4. MODIFICAR O ACTUALIZAR GUÍAS
+    // 4. MODIFICAR O ACTUALIZAR GUÍAS (Protegido por SecurityConfig -> ROLE_ADMIN)
     @PutMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<String> actualizarGuia(@PathVariable Long id, @RequestBody GuiaDespacho datosActualizados) {
         return guiaRepository.findById(id).map(guia -> {
             guia.setNumeroGuia(datosActualizados.getNumeroGuia());
@@ -84,9 +79,8 @@ public class GuiaController {
         }).orElse(ResponseEntity.status(HttpStatus.NOT_FOUND).body("Guía no encontrada."));
     }
 
-    // 5. ELIMINAR GUÍAS ESPECÍFICAS
+    // 5. ELIMINAR GUÍAS ESPECÍFICAS (Protegido por SecurityConfig -> ROLE_ADMIN)
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<String> eliminarGuia(@PathVariable Long id) {
         if (guiaRepository.existsById(id)) {
             guiaRepository.deleteById(id);
@@ -95,9 +89,8 @@ public class GuiaController {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body("No se pudo eliminar: Guía no encontrada.");
     }
 
-    // 6. CONSULTAR GUÍAS POR TRANSPORTISTA Y FECHA
+    // 6. CONSULTAR GUÍAS POR TRANSPORTISTA Y FECHA (Protegido por SecurityConfig -> ROLE_DESCARGAR)
     @GetMapping("/buscar")
-    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<List<GuiaDespacho>> buscarPorTransportistaYFecha(
             @RequestParam String transportista,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fecha) {
@@ -106,7 +99,7 @@ public class GuiaController {
         return ResponseEntity.ok(resultados);
     }
 
-    // 7. LISTAR TODAS LAS GUÍAS CREADAS (Para usar en Postman)
+    // 7. LISTAR TODAS LAS GUÍAS CREADAS (Protegido por SecurityConfig -> ROLE_DESCARGAR)
     @GetMapping
     public ResponseEntity<List<GuiaDespacho>> listarTodasLasGuias() {
         List<GuiaDespacho> guias = guiaRepository.findAll();
