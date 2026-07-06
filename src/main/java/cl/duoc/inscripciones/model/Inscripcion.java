@@ -2,10 +2,13 @@ package cl.duoc.inscripciones.model;
 
 import jakarta.persistence.*;
 import java.util.List;
+import java.io.Serializable; // Necesario para la mensajería asíncrona
 
 @Entity
 @Table(name = "inscripciones")
-public class Inscripcion {
+public class Inscripcion implements Serializable {
+
+    private static final long serialVersionUID = 1L;
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -25,10 +28,13 @@ public class Inscripcion {
     // Getters y Setters
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
+    
     public String getEstudiante() { return estudiante; }
     public void setEstudiante(String estudiante) { this.estudiante = estudiante; }
+    
     public List<String> getCursosSeleccionados() { return cursosSeleccionados; }
     public void setCursosSeleccionados(List<String> cursosSeleccionados) { this.cursosSeleccionados = cursosSeleccionados; }
+    
     public Double getTotalPagar() { return totalPagar; }
     public void setTotalPagar(Double totalPagar) { this.totalPagar = totalPagar; }
 }
