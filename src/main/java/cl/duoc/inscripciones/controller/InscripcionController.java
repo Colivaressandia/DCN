@@ -30,22 +30,30 @@ public class InscripcionController {
     private AwsS3Service awsS3Service;
 
     // ===================================================================
-    // ENDPOINTS DE LA SEMANA 1 (Mantenidos intactos para persistencia Cloud)
+    // ENDPOINTS DE CURSOS
     // ===================================================================
 
-    // 1. ENDPOINT: Consultar lista de cursos disponibles
     @GetMapping("/cursos")
     public List<Curso> listarCursos() {
         return cursoRepository.findAll();
     }
 
-    // 2. ENDPOINT: Agregar nuevos cursos a la oferta educativa
     @PostMapping("/cursos")
     public Curso agregarCurso(@RequestBody Curso curso) {
         return cursoRepository.save(curso);
     }
 
-    // 3. ENDPOINT: Inscribir estudiantes en uno o más cursos
+    // ===================================================================
+    // ENDPOINTS DE INSCRIPCIONES
+    // ===================================================================
+
+    // Nuevo: Listar todas las inscripciones (Para obtener los IDs necesarios)
+    @GetMapping("/inscripciones")
+    public List<Inscripcion> listarInscripciones() {
+        return inscripcionRepository.findAll();
+    }
+
+    // Inscripción de estudiantes
     @PostMapping("/inscripciones")
     public Inscripcion inscribirEstudiante(@RequestParam String estudiante, @RequestBody List<Long> cursosIds) {
         List<String> nombresCursos = new ArrayList<>();
@@ -67,10 +75,9 @@ public class InscripcionController {
     }
 
     // ===================================================================
-    // NUEVOS ENDPOINTS - SEMANA 2 (Gestión Cloud Native AWS S3)
+    // ENDPOINTS DE GESTIÓN AWS S3
     // ===================================================================
 
-    // 4. ENDPOINT: Generar resumen de base de datos y subirlo a AWS S3
     @PostMapping("/inscripciones/{id}/subir")
     public ResponseEntity<String> subirResumenS3(@PathVariable Long id) {
         Inscripcion inscripcion = inscripcionRepository.findById(id)
@@ -88,7 +95,6 @@ public class InscripcionController {
         return ResponseEntity.ok("Resumen de inscripción N° " + id + " subido exitosamente a AWS S3.");
     }
 
-    // 5. ENDPOINT: Descargar el archivo del resumen de inscripción desde S3
     @GetMapping("/inscripciones/{id}/descargar")
     public ResponseEntity<byte[]> descargarResumenS3(@PathVariable Long id) {
         String contenido = awsS3Service.descargarArchivo(id);
@@ -101,14 +107,12 @@ public class InscripcionController {
         return new ResponseEntity<>(data, headers, HttpStatus.OK);
     }
 
-    // 6. ENDPOINT: Modificar el contenido del archivo en S3 en caso de error
     @PutMapping("/inscripciones/{id}/modificar")
     public ResponseEntity<String> modificarResumenS3(@PathVariable Long id, @RequestBody String nuevoContenido) {
         awsS3Service.subirArchivo(id, nuevoContenido);
         return ResponseEntity.ok("Archivo de inscripción N° " + id + " modificado correctamente en AWS S3.");
     }
 
-    // 7. ENDPOINT: Eliminar el archivo físico de S3
     @DeleteMapping("/inscripciones/{id}/borrar")
     public ResponseEntity<String> borrarResumenS3(@PathVariable Long id) {
         awsS3Service.borrarArchivo(id);
