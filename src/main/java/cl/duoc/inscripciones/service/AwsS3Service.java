@@ -4,7 +4,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import software.amazon.awssdk.core.ResponseBytes;
 import software.amazon.awssdk.core.sync.RequestBody;
+import software.amazon.awssdk.core.sync.ResponseTransformer;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.*;
 import java.io.File;
@@ -29,17 +31,29 @@ public class AwsS3Service {
         if (!archivo.exists()) {
             throw new RuntimeException("Archivo no encontrado en: " + rutaEfs);
         }
+
         String fecha = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
         String key = fecha + "/" + transportista.replaceAll("\\s+", "").toLowerCase() + "/guia_" + numeroGuia + ".pdf";
+
         s3Client.putObject(PutObjectRequest.builder()
                 .bucket(bucketName)
                 .key(key)
                 .contentType("application/pdf")
                 .build(), RequestBody.fromFile(archivo));
+        
         return key;
     }
 
+    public ResponseBytes<GetObjectResponse> descargarGuiaDeS3(String key) {
+        GetObjectRequest getObjectRequest = GetObjectRequest.builder()
+                .bucket(bucketName)
+                .key(key)
+                .build();
+                
+        return s3Client.getObject(getObjectRequest, ResponseTransformer.toBytes());
+    }
+
     public void borrarArchivo(Long id) {
-        // Lógica de borrado si la necesitas para el endpoint de eliminar
+        // Implementación futura si es necesaria
     }
 }
