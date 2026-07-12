@@ -1,10 +1,6 @@
 package cl.duoc.inscripciones.model;
 
-import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
 import java.time.LocalDate;
 
 @Entity
@@ -13,19 +9,26 @@ public class GuiaDespacho {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "ID")
     private Long id;
     
+    @Column(name = "NUMERO_GUIA")
     private String numeroGuia;
+    
+    @Column(name = "TRANSPORTISTA")
     private String transportista;
+    
+    @Column(name = "FECHA")
     private LocalDate fecha;
+    
+    @Column(name = "RUTA_EFS")
     private String rutaEfs;
+    
+    @Column(name = "URLS3")
     private String urlS3;
 
-    // Constructor vacío obligatorio para JPA
-    public GuiaDespacho() {
-    }
+    public GuiaDespacho() {}
 
-    // Constructor completo
     public GuiaDespacho(Long id, String numeroGuia, String transportista, LocalDate fecha, String rutaEfs, String urlS3) {
         this.id = id;
         this.numeroGuia = numeroGuia;
@@ -36,51 +39,16 @@ public class GuiaDespacho {
     }
 
     // Getters y Setters
-    public Long getId() {
-        return id;
-    }
-
-    public void setId(Long id) {
-        this.id = id;
-    }
-
-    public String getNumeroGuia() {
-        return numeroGuia;
-    }
-
-    public void setNumeroGuia(String numeroGuia) {
-        this.numeroGuia = numeroGuia;
-    }
-
-    public String getTransportista() {
-        return transportista;
-    }
-
-    public void setTransportista(String transportista) {
-        this.transportista = transportista;
-    }
-
-    public LocalDate getFecha() {
-        return fecha;
-    }
-
-    public void setFecha(LocalDate fecha) {
-        this.fecha = fecha;
-    }
-
-    public String getRutaEfs() {
-        return rutaEfs;
-    }
-
-    public void setRutaEfs(String rutaEfs) {
-        this.rutaEfs = rutaEfs;
-    }
-
-    public String getUrlS3() {
-        return urlS3;
-    }
-
-    public void setUrlS3(String urlS3) {
-        this.urlS3 = urlS3;
-    }
+    public Long getId() { return id; }
+    public void setId(Long id) { this.id = id; }
+    public String getNumeroGuia() { return numeroGuia; }
+    public void setNumeroGuia(String numeroGuia) { this.numeroGuia = numeroGuia; }
+    public String getTransportista() { return transportista; }
+    public void setTransportista(String transportista) { this.transportista = transportista; }
+    public LocalDate getFecha() { return fecha; }
+    public void setFecha(LocalDate fecha) { this.fecha = fecha; }
+    public String getRutaEfs() { return rutaEfs; }
+    public void setRutaEfs(String rutaEfs) { this.rutaEfs = rutaEfs; }
+    public String getUrlS3() { return urlS3; }
+    public void setUrlS3(String urlS3) { this.urlS3 = urlS3; }
 }
