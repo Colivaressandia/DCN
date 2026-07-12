@@ -2,18 +2,20 @@ package cl.duoc.inscripciones.controller;
 
 import cl.duoc.inscripciones.model.GuiaDespacho;
 import cl.duoc.inscripciones.repository.GuiaDespachoRepository;
+import jakarta.annotation.PostConstruct;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import javax.annotation.PostConstruct;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.logging.Logger;
 
 @RestController
 @RequestMapping("/api/guias")
+@CrossOrigin(origins = "*") // Reforzado para asegurar CORS
 public class GuiaController {
 
     private static final Logger logger = Logger.getLogger(GuiaController.class.getName());
@@ -42,23 +44,31 @@ public class GuiaController {
         return ResponseEntity.ok(guiaRepository.findAll());
     }
 
+    // Endpoint corregido con logs para diagnóstico
     @GetMapping("/buscar")
-    public ResponseEntity<List<GuiaDespacho>> buscarGuias(@RequestParam String transportista, @RequestParam String fecha) {
-        // La fecha debe venir en formato YYYY-MM-DD desde Postman
-        LocalDate fechaLocal = LocalDate.parse(fecha);
-        return ResponseEntity.ok(guiaRepository.findByTransportistaIgnoreCaseAndFecha(transportista, fechaLocal));
+    public ResponseEntity<List<GuiaDespacho>> buscarGuias(
+            @RequestParam String transportista, 
+            @RequestParam String fecha,
+            HttpServletRequest request) {
+
+        logger.info("--- PETICION RECIBIDA EN /api/guias/buscar ---");
+        logger.info("URL completa: " + request.getRequestURL());
+        logger.info("Transportista: " + transportista + " | Fecha: " + fecha);
+
+        try {
+            LocalDate fechaLocal = LocalDate.parse(fecha);
+            List<GuiaDespacho> resultados = guiaRepository.findByTransportistaIgnoreCaseAndFecha(transportista, fechaLocal);
+            return ResponseEntity.ok(resultados);
+        } catch (Exception e) {
+            logger.severe("Error al buscar guías: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+        }
     }
 
     @GetMapping("/{id}")
     public ResponseEntity<String> obtenerGuia(@PathVariable Long id) {
         return guiaRepository.findById(id)
-            .map(guia -> {
-                String urlS3 = guia.getUrlS3();
-                if (urlS3 != null && !urlS3.contains(bucketName)) {
-                    logger.warning("Alerta: La URL en BD no coincide con el bucket actual configurado.");
-                }
-                return ResponseEntity.ok("Enlace descarga S3: " + urlS3);
-            })
+            .map(guia -> ResponseEntity.ok("Enlace descarga S3: " + guia.getUrlS3()))
             .orElse(ResponseEntity.status(HttpStatus.NOT_FOUND).build());
     }
 
