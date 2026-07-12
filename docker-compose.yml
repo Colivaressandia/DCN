@@ -16,8 +16,10 @@ services:
     ports:
       - "8080:8080"
     volumes:
-      # Montamos la carpeta del Wallet local dentro del contenedor
+      # Montamos el Wallet para la base de datos
       - ./OracleWallet:/app/OracleWallet
+      # Montamos la carpeta de datos para que el contenedor pueda leer el PDF
+      - ./datos:/app/datos
     environment:
       - SPRING_RABBITMQ_HOST=rabbitmq
       - AWS_S3_BUCKET_NAME=duoc-inscripciones-bucket-cristian-olivares
@@ -25,7 +27,7 @@ services:
       - SPRING_RABBITMQ_PORT=5672
       - SPRING_RABBITMQ_USERNAME=guest
       - SPRING_RABBITMQ_PASSWORD=guest
-      # Estas variables se cargan automáticamente desde tu archivo .env
+      # Estas variables se cargan desde tu archivo .env
       - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
       - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
       - AWS_SESSION_TOKEN=${AWS_SESSION_TOKEN}
