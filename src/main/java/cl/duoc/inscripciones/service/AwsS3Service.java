@@ -1,14 +1,14 @@
 package cl.duoc.inscripciones.service;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
-import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
-import software.amazon.awssdk.services.s3.model.GetObjectRequest;
-import software.amazon.awssdk.services.s3.model.PutObjectRequest;
+import software.amazon.awssdk.services.s3.model.*;
 import software.amazon.awssdk.core.ResponseBytes;
-import software.amazon.awssdk.services.s3.model.GetObjectResponse;
+
 import java.io.File;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
@@ -17,6 +17,7 @@ import java.time.format.DateTimeFormatter;
 @Service
 public class AwsS3Service {
 
+    private static final Logger logger = LoggerFactory.getLogger(AwsS3Service.class);
     private final S3Client s3Client;
 
     @Value("${aws.s3.bucket-name}")
@@ -27,77 +28,65 @@ public class AwsS3Service {
     }
 
     // ===================================================================
-    // MÉTODOS NUEVOS - SEMANA 3 (GUÍAS DE DESPACHO)
+    // MÉTODOS PARA GUÍAS DE DESPACHO
     // ===================================================================
     public String subirGuiaAS3(String rutaEfs, String transportista, String numeroGuia) {
         File archivo = new File(rutaEfs);
         if (!archivo.exists()) {
-            throw new RuntimeException("El archivo temporal en el EFS no existe: " + rutaEfs);
+            throw new RuntimeException("Archivo no encontrado en: " + rutaEfs);
         }
 
-        String fechaFormateada = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
-        String transportistaClean = transportista.replaceAll("\\s+", "").toLowerCase();
-        String s3Key = fechaFormateada + "/" + transportistaClean + "/guia_" + numeroGuia + ".pdf";
+        String fecha = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
+        String key = fecha + "/" + transportista.replaceAll("\\s+", "").toLowerCase() + "/guia_" + numeroGuia + ".pdf";
 
-        PutObjectRequest putObjectRequest = PutObjectRequest.builder()
+        s3Client.putObject(PutObjectRequest.builder()
                 .bucket(bucketName)
-                .key(s3Key)
+                .key(key)
                 .contentType("application/pdf")
-                .build();
-
-        s3Client.putObject(putObjectRequest, RequestBody.fromFile(archivo));
-        return s3Key;
-    }
-
-    public void eliminarGuiaDeS3(String s3Key) {
-        DeleteObjectRequest deleteObjectRequest = DeleteObjectRequest.builder()
-                .bucket(bucketName)
-                .key(s3Key)
-                .build();
-        s3Client.deleteObject(deleteObjectRequest);
+                .build(), RequestBody.fromFile(archivo));
+        
+        return key;
     }
 
     // ===================================================================
-    // MÉTODOS ANTIGUOS RESPALDADOS - SEMANA 2 (INSCRIPCIONES)
+    // MÉTODOS PARA INSCRIPCIONES
     // ===================================================================
     public String generarContenidoTexto(Long id, String alumno, String curso, Double total) {
-        return "========================================\n" +
-               "RESUMEN DE INSCRIPCIÓN N° " + id + "\n" +
-               "========================================\n" +
+        return "RESUMEN DE INSCRIPCIÓN N° " + id + "\n" +
                "Estudiante: " + alumno + "\n" +
-               "Cursos Seleccionados:\n" +
-               "- " + curso + " ($" + total + ")\n" +
-               "----------------------------------------\n" +
-               "TOTAL A PAGAR: $" + total + "\n" +
-               "========================================\n";
+               "Cursos: " + curso + "\n" +
+               "TOTAL: $" + total + "\n";
     }
 
     public void subirArchivo(Long id, String contenido) {
         String s3Key = id + "/resumen.txt";
-        PutObjectRequest putObjectRequest = PutObjectRequest.builder()
-                .bucket(bucketName)
-                .key(s3Key)
-                .contentType("text/plain")
-                .build();
-        s3Client.putObject(putObjectRequest, RequestBody.fromString(contenido, StandardCharsets.UTF_8));
+        logger.info("Intentando subir archivo a S3 bucket: {} con clave: {}", bucketName, s3Key);
+        
+        try {
+            s3Client.putObject(PutObjectRequest.builder()
+                    .bucket(bucketName)
+                    .key(s3Key)
+                    .contentType("text/plain")
+                    .build(), RequestBody.fromString(contenido, StandardCharsets.UTF_8));
+        } catch (S3Exception e) {
+            logger.error("Error de S3 al subir archivo: {}", e.awsErrorDetails().errorMessage());
+            throw e;
+        }
     }
 
     public String descargarArchivo(Long id) {
         String s3Key = id + "/resumen.txt";
-        GetObjectRequest getObjectRequest = GetObjectRequest.builder()
+        ResponseBytes<GetObjectResponse> objectBytes = s3Client.getObjectAsBytes(GetObjectRequest.builder()
                 .bucket(bucketName)
                 .key(s3Key)
-                .build();
-        ResponseBytes<GetObjectResponse> objectBytes = s3Client.getObjectAsBytes(getObjectRequest);
+                .build());
         return objectBytes.asString(StandardCharsets.UTF_8);
     }
 
     public void borrarArchivo(Long id) {
-        String s3Key = id + "/resumen.txt";
-        DeleteObjectRequest deleteObjectRequest = DeleteObjectRequest.builder()
+        s3Client.deleteObject(DeleteObjectRequest.builder()
                 .bucket(bucketName)
-                .key(s3Key)
-                .build();
-        s3Client.deleteObject(deleteObjectRequest);
+                .key(id + "/resumen.txt")
+                .build());
     }
 }
