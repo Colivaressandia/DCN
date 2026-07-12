@@ -2,16 +2,13 @@ package cl.duoc.inscripciones.controller;
 
 import cl.duoc.inscripciones.model.GuiaDespacho;
 import cl.duoc.inscripciones.repository.GuiaDespachoRepository;
-import cl.duoc.inscripciones.config.RabbitConfig;
-import org.springframework.amqp.rabbit.core.RabbitTemplate;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.multipart.MultipartFile;
-import jakarta.annotation.PostConstruct;
 
+import javax.annotation.PostConstruct;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.logging.Logger;
 
@@ -21,15 +18,14 @@ public class GuiaController {
 
     private static final Logger logger = Logger.getLogger(GuiaController.class.getName());
 
-    @Autowired
-    private GuiaDespachoRepository guiaRepository;
+    private final GuiaDespachoRepository guiaRepository;
 
-    @Autowired
-    private RabbitTemplate rabbitTemplate;
-
-    // Esta variable se alimenta de application.properties o variables de entorno
     @Value("${aws.s3.bucket-name}")
     private String bucketName;
+
+    public GuiaController(GuiaDespachoRepository guiaRepository) {
+        this.guiaRepository = guiaRepository;
+    }
 
     @PostConstruct
     public void init() {
@@ -37,28 +33,26 @@ public class GuiaController {
     }
 
     @PostMapping
-    public ResponseEntity<String> crearGuia(@RequestBody GuiaDespacho nuevaGuia) {
-        rabbitTemplate.convertAndSend(RabbitConfig.EXCHANGE, RabbitConfig.ROUTING_KEY_NORMAL, nuevaGuia);
-        return new ResponseEntity<>("Guía enviada a la cola para procesamiento asíncrono.", HttpStatus.ACCEPTED);
+    public ResponseEntity<GuiaDespacho> crearGuia(@RequestBody GuiaDespacho guia) {
+        return ResponseEntity.ok(guiaRepository.save(guia));
     }
 
-    @PostMapping("/{id}/upload")
-    public ResponseEntity<String> subirGuiaAS3(@PathVariable Long id, @RequestParam("file") MultipartFile file) {
-        return guiaRepository.findById(id).map(guia -> {
-            // Construcción dinámica: NUNCA escribir el nombre del bucket directamente aquí
-            String url = "https://" + bucketName + ".s3.amazonaws.com/" + file.getOriginalFilename();
-            guia.setUrlS3(url);
-            guiaRepository.save(guia);
-            logger.info("Archivo subido con éxito al bucket: " + bucketName + " con URL: " + url);
-            return ResponseEntity.ok("Archivo subido correctamente al bucket: " + bucketName);
-        }).orElse(ResponseEntity.status(HttpStatus.NOT_FOUND).body("Guía no encontrada."));
+    @GetMapping
+    public ResponseEntity<List<GuiaDespacho>> listar() {
+        return ResponseEntity.ok(guiaRepository.findAll());
     }
 
-    @GetMapping("/{id}/download")
-    public ResponseEntity<?> descargarGuia(@PathVariable Long id) {
+    @GetMapping("/buscar")
+    public ResponseEntity<List<GuiaDespacho>> buscarGuias(@RequestParam String transportista, @RequestParam String fecha) {
+        // La fecha debe venir en formato YYYY-MM-DD desde Postman
+        LocalDate fechaLocal = LocalDate.parse(fecha);
+        return ResponseEntity.ok(guiaRepository.findByTransportistaIgnoreCaseAndFecha(transportista, fechaLocal));
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<String> obtenerGuia(@PathVariable Long id) {
         return guiaRepository.findById(id)
             .map(guia -> {
-                // Validación para asegurar que la URL sea correcta incluso si se recupera de BD
                 String urlS3 = guia.getUrlS3();
                 if (urlS3 != null && !urlS3.contains(bucketName)) {
                     logger.warning("Alerta: La URL en BD no coincide con el bucket actual configurado.");
@@ -73,6 +67,7 @@ public class GuiaController {
         return guiaRepository.findById(id).map(guia -> {
             guia.setNumeroGuia(d.getNumeroGuia());
             guia.setTransportista(d.getTransportista());
+            guia.setFecha(d.getFecha());
             guiaRepository.save(guia);
             return ResponseEntity.ok("Guía actualizada correctamente.");
         }).orElse(ResponseEntity.status(HttpStatus.NOT_FOUND).body("No encontrada."));
@@ -85,10 +80,5 @@ public class GuiaController {
             return ResponseEntity.ok("Eliminada exitosamente.");
         }
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body("No encontrada.");
-    }
-
-    @GetMapping
-    public ResponseEntity<List<GuiaDespacho>> listar() {
-        return ResponseEntity.ok(guiaRepository.findAll());
     }
 }
