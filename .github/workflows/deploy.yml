@@ -20,7 +20,8 @@ jobs:
         cache: 'maven'
 
     - name: Compilar Proyecto con Maven
-      run: chmod +x mvnw && ./mvnw clean package -DskipTests
+      # Eliminamos el -DskipTests para que tu pipeline verifique la calidad del código
+      run: chmod +x mvnw && ./mvnw clean package
 
     - name: Autenticar en Docker Hub
       uses: docker/login-action@v3
@@ -40,33 +41,27 @@ jobs:
         username: ${{ secrets.EC2_USERNAME }}
         key: ${{ secrets.EC2_SSH_KEY }}
         script: |
-          # 1. Instalar Docker en la máquina virtual si no existe
-          if ! command -v docker &> /dev/null; then
-            sudo apt-get update -y
-            sudo apt-get install -y docker.io
-            sudo systemctl start docker
-            sudo systemctl enable docker
-            sudo usermod -aG docker ubuntu
-          fi
+          # 1. Asegurar Docker y dependencias
+          sudo apt-get update -y
+          sudo apt-get install -y docker.io nfs-common
+          sudo systemctl start docker
+          sudo systemctl enable docker
 
-          # 2. Instalar utilidades para conectar redes NFS (EFS)
-          sudo apt-get install -y nfs-common
-
-          # 3. Crear carpetas físicas de montaje en la máquina de AWS
+          # 2. Configuración de EFS (Volumen compartido)
           sudo mkdir -p /mnt/efs_guias
           sudo mkdir -p /home/ubuntu/efs_local_guias
+          # Montaje de EFS - Asegúrate de que el DNS de tu EFS sea el correcto
+          if ! mountpoint -q /mnt/efs_guias; then
+            sudo mount -t nfs4 -o nfsvers=4.1,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2,noresvport fs-0b535e067b2778e63.efs.us-east-1.amazonaws.com:/ /mnt/efs_guias
+          fi
+          sudo mount --bind /mnt/efs_guias /home/ubuntu/efs_local_guias
 
-          # 4. Conectar el volumen elástico EFS de AWS
-          sudo mount -t nfs4 -o nfsvers=4.1,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2,noresvport fs-0b535e067b2778e63.efs.us-east-1.amazonaws.com:/ /mnt/efs_guias || true
-          
-          # Enlazar la carpeta del EFS con el directorio local que lee tu Spring Boot
-          sudo mount --bind /mnt/efs_guias /home/ubuntu/efs_local_guias || true
-
-          # 5. Detener el contenedor anterior, descargar la nueva imagen y encenderlo con volumen mapeado e inyección de credenciales seguras
+          # 3. Despliegue del contenedor
           sudo docker stop inscripciones-backend || true
           sudo docker rm inscripciones-backend || true
           sudo docker pull ${{ secrets.DOCKER_USERNAME }}/inscripciones-backend:latest
           
+          # 4. Ejecución con variables de entorno desde GitHub Secrets
           sudo docker run -d \
             --name inscripciones-backend \
             -p 8080:8080 \
