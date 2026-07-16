@@ -1,3 +1,5 @@
+package cl.duoc.inscripciones.service;
+
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
@@ -25,6 +27,6 @@ public class AwsS3Service {
 
         s3Client.putObject(putObjectRequest, RequestBody.fromInputStream(inputStream, contentLength));
         
-        return key; // Retorna la key para guardarla en la BD
+        return key;
     }
 }

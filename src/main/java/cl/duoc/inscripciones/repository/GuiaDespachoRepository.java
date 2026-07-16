@@ -9,6 +9,5 @@ import java.util.List;
 @Repository
 public interface GuiaDespachoRepository extends JpaRepository<GuiaDespacho, Long> {
     
-    // Spring Boot genera automáticamente el SQL para esta búsqueda:
     List<GuiaDespacho> findByTransportistaAndFecha(String transportista, LocalDate fecha);
 }
