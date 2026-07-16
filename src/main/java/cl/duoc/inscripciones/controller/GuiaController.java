@@ -1,76 +1,65 @@
 package cl.duoc.inscripciones.controller;
 
 import cl.duoc.inscripciones.model.GuiaDespacho;
-import cl.duoc.inscripciones.repository.GuiaDespachoRepository;
+import cl.duoc.inscripciones.repository.GuiaRepository;
 import cl.duoc.inscripciones.service.AwsS3Service;
-import cl.duoc.inscripciones.config.RabbitConfig;
-import org.springframework.amqp.rabbit.core.RabbitTemplate;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
-import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
-import java.util.List;
+import org.springframework.web.multipart.MultipartFile;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @RestController
 @RequestMapping("/api/guias")
 public class GuiaController {
 
-    @Autowired
-    private GuiaDespachoRepository repository;
+    private static final Logger logger = LoggerFactory.getLogger(GuiaController.class);
+    
+    private final GuiaRepository repository;
+    private final AwsS3Service s3Service;
 
-    @Autowired
-    private RabbitTemplate rabbitTemplate;
-
-    @Autowired
-    private AwsS3Service s3Service;
-
-    @PostMapping
-    public ResponseEntity<GuiaDespacho> crearGuia(@RequestBody GuiaDespacho guia) {
-        GuiaDespacho guardada = repository.save(guia);
-        rabbitTemplate.convertAndSend(RabbitConfig.EXCHANGE, RabbitConfig.ROUTING_KEY_NORMAL, guardada);
-        return ResponseEntity.ok(guardada);
-    }
-
-    @GetMapping
-    public List<GuiaDespacho> listar() {
-        return repository.findAll();
+    public GuiaController(GuiaRepository repository, AwsS3Service s3Service) {
+        this.repository = repository;
+        this.s3Service = s3Service;
     }
 
     @PostMapping("/{id}/subir")
-    public ResponseEntity<String> subir(@PathVariable Long id) {
-        GuiaDespacho guia = repository.findById(id).orElseThrow();
-        String key = s3Service.subirGuiaAS3(guia.getRutaEfs(), guia.getTransportista(), guia.getNumeroGuia());
-        guia.setUrlS3(key);
-        repository.save(guia);
-        return ResponseEntity.ok("Subido con éxito: " + key);
-    }
-
-    @GetMapping("/{id}/descargar")
-    public ResponseEntity<byte[]> descargar(@PathVariable Long id) {
-        GuiaDespacho guia = repository.findById(id).orElseThrow();
+    public ResponseEntity<?> subir(@PathVariable Long id, @RequestParam("file") MultipartFile file) {
+        logger.info("Recibiendo petición de subida para ID: {}", id);
         
-        var responseBytes = s3Service.descargarGuiaDeS3(guia.getUrlS3());
-        byte[] content = responseBytes.asByteArray();
-        
-        return ResponseEntity.ok()
-                .header("Content-Disposition", "attachment; filename=\"guia_" + guia.getNumeroGuia() + ".pdf\"")
-                .contentType(MediaType.APPLICATION_PDF)
-                .body(content);
+        try {
+            if (file == null || file.isEmpty()) {
+                logger.error("El archivo enviado para el ID {} está vacío", id);
+                return ResponseEntity.badRequest().body("Error: El archivo enviado está vacío.");
+            }
+
+            GuiaDespacho guia = repository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Guía no encontrada con ID: " + id));
+
+            // Usamos el InputStream directo para evitar problemas con rutas locales del sistema de archivos
+            String key = s3Service.subirGuiaAS3(
+                file.getInputStream(), 
+                file.getSize(), 
+                guia.getTransportista(), 
+                guia.getNumeroGuia()
+            );
+
+            // Actualizamos la referencia en la base de datos
+            guia.setUrlS3(key);
+            repository.save(guia);
+
+            logger.info("Archivo subido con éxito a S3: {} para la guía ID: {}", key, id);
+            return ResponseEntity.ok("Subida completada. Referencia S3: " + key);
+
+        } catch (Exception e) {
+            logger.error("Error crítico procesando la subida para el ID {}: {}", id, e.getMessage());
+            // Esto devolverá el error real (Token expirado, Acceso denegado, etc.) a Postman
+            return ResponseEntity.status(500).body("Error en el servidor: " + e.getMessage());
+        }
     }
 
-    @PutMapping("/{id}")
-    public ResponseEntity<GuiaDespacho> actualizarGuia(@PathVariable Long id, @RequestBody GuiaDespacho guiaDetalles) {
-        GuiaDespacho guia = repository.findById(id).orElseThrow();
-        guia.setNumeroGuia(guiaDetalles.getNumeroGuia());
-        guia.setTransportista(guiaDetalles.getTransportista());
-        guia.setFecha(guiaDetalles.getFecha());
-        guia.setRutaEfs(guiaDetalles.getRutaEfs());
-        return ResponseEntity.ok(repository.save(guia));
-    }
-
-    @DeleteMapping("/{id}")
-    public ResponseEntity<Void> eliminarGuia(@PathVariable Long id) {
-        repository.deleteById(id);
-        return ResponseEntity.noContent().build();
+    @GetMapping
+    public ResponseEntity<?> listar() {
+        return ResponseEntity.ok(repository.findAll());
     }
 }

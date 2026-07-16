@@ -11,6 +11,8 @@ public class AwsS3Config {
 
     @Bean
     public S3Client s3Client() {
+        // DefaultCredentialsProvider es inteligente: 
+        // primero buscará variables de entorno, y si no, buscará el archivo credentials
         return S3Client.builder()
                 .region(Region.US_EAST_1)
                 .credentialsProvider(DefaultCredentialsProvider.create())

@@ -1,41 +1,33 @@
 version: '3.8'
-
 services:
   rabbitmq:
-    image: rabbitmq:4.0-management
+    image: rabbitmq:3-management
     container_name: rabbitmq
     ports:
       - "5672:5672"
       - "15672:15672"
     networks:
-      - cloud-network
+      - app-network
 
   app:
     build: .
     container_name: inscripciones-app
     ports:
       - "8080:8080"
-    volumes:
-      # Montamos el Wallet para la base de datos
-      - ./OracleWallet:/app/OracleWallet
-      # Montamos la carpeta de datos para que el contenedor pueda leer el PDF
-      - ./datos:/app/datos
     environment:
       - SPRING_RABBITMQ_HOST=rabbitmq
-      - AWS_S3_BUCKET_NAME=duoc-inscripciones-bucket-cristian-olivares
-      - AWS_REGION=us-east-1
       - SPRING_RABBITMQ_PORT=5672
       - SPRING_RABBITMQ_USERNAME=guest
       - SPRING_RABBITMQ_PASSWORD=guest
-      # Estas variables se cargan desde tu archivo .env
-      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
-      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
-      - AWS_SESSION_TOKEN=${AWS_SESSION_TOKEN}
-    depends_on:
-      - rabbitmq
+      - AWS_S3_BUCKET_NAME=duoc-inscripciones-bucket-cristian-olivares
+      - AWS_REGION=us-east-1
+      # AQUI PONEMOS LAS CREDENCIALES FRESCAS QUE TE DIO AWS ACADEMY
+      - AWS_ACCESS_KEY_ID=PON_AQUI_EL_KEY_ID
+      - AWS_SECRET_ACCESS_KEY=PON_AQUI_LA_SECRET_KEY
+      - AWS_SESSION_TOKEN=PON_AQUI_EL_TOKEN_COMPLETO
     networks:
-      - cloud-network
+      - app-network
 
 networks:
-  cloud-network:
+  app-network:
     driver: bridge
