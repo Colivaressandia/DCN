@@ -42,7 +42,7 @@ jobs:
         script: |
           # 1. Asegurar Docker y dependencias
           sudo apt-get update -y
-          sudo apt-get install -y docker.io nfs-common
+          sudo apt-get install -y docker.io nfs-common lsof
           sudo systemctl start docker
           sudo systemctl enable docker
 
@@ -55,10 +55,11 @@ jobs:
           sudo mount --bind /mnt/efs_guias /home/ubuntu/efs_local_guias
 
           # 3. Despliegue del contenedor
-          # Liberar el puerto 8080 antes de intentar iniciar el nuevo contenedor
-          sudo fuser -k 8080/tcp || true
+          # Forzar detencion/eliminacion y matar procesos en puerto 8080
           sudo docker stop inscripciones-backend || true
-          sudo docker rm inscripciones-backend || true
+          sudo docker rm -f inscripciones-backend || true
+          sudo lsof -t -i:8080 | xargs -r sudo kill -9 || true
+          
           sudo docker pull ${{ secrets.DOCKER_USERNAME }}/inscripciones-backend:latest
           
           # 4. Ejecución con variables de entorno desde GitHub Secrets
