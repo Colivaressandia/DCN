@@ -55,17 +55,16 @@ jobs:
           sudo mount --bind /mnt/efs_guias /home/ubuntu/efs_local_guias
 
           # 3. Despliegue del contenedor
-          # Forzar detencion/eliminacion y matar procesos en puerto 8080
           sudo docker stop inscripciones-backend || true
           sudo docker rm -f inscripciones-backend || true
           sudo lsof -t -i:8080 | xargs -r sudo kill -9 || true
           
           sudo docker pull ${{ secrets.DOCKER_USERNAME }}/inscripciones-backend:latest
           
-          # 4. Ejecución con variables de entorno desde GitHub Secrets
+          # 4. Ejecución usando puerto 8081 para evitar conflictos
           sudo docker run -d \
             --name inscripciones-backend \
-            -p 8080:8080 \
+            -p 8081:8080 \
             -e AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }} \
             -e AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }} \
             -e AWS_SESSION_TOKEN=${{ secrets.AWS_SESSION_TOKEN }} \
