@@ -20,7 +20,6 @@ jobs:
         cache: 'maven'
 
     - name: Compilar Proyecto con Maven
-      # Eliminamos el -DskipTests para que tu pipeline verifique la calidad del código
       run: chmod +x mvnw && ./mvnw clean package
 
     - name: Autenticar en Docker Hub
@@ -50,13 +49,14 @@ jobs:
           # 2. Configuración de EFS (Volumen compartido)
           sudo mkdir -p /mnt/efs_guias
           sudo mkdir -p /home/ubuntu/efs_local_guias
-          # Montaje de EFS - Asegúrate de que el DNS de tu EFS sea el correcto
           if ! mountpoint -q /mnt/efs_guias; then
             sudo mount -t nfs4 -o nfsvers=4.1,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2,noresvport fs-0b535e067b2778e63.efs.us-east-1.amazonaws.com:/ /mnt/efs_guias
           fi
           sudo mount --bind /mnt/efs_guias /home/ubuntu/efs_local_guias
 
           # 3. Despliegue del contenedor
+          # Liberar el puerto 8080 antes de intentar iniciar el nuevo contenedor
+          sudo fuser -k 8080/tcp || true
           sudo docker stop inscripciones-backend || true
           sudo docker rm inscripciones-backend || true
           sudo docker pull ${{ secrets.DOCKER_USERNAME }}/inscripciones-backend:latest
